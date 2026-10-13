@@ -1,0 +1,22 @@
+
+node_modules/
+dist/
+coverage/
+
+.env
+.env.*
+!.env.example
+
+# Private moderator material: only templates may be committed.
+policy/private/*
+
+.dockerignore
+.env.example
+.gitattributes
+Dockerfile
+docker-compose.yml
+test/
+
+*.log
+.DS_Store
+Thumbs.db

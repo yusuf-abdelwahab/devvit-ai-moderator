@@ -1,0 +1,49 @@
+{
+  "name": "mm-ai-mod",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "overrides": {
+    "js-yaml": "^4.3.2",
+    "protobufjs": "^7.6.5"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "npx devvit playtest",
+    "upload": "npm run build && devvit upload",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@devvit/public-api": "^0.14.3",
+    "@devvit/start": "^0.14.3",
+    "@devvit/web": "^0.14.3",
+    "@hono/node-server": "^2.1.4",
+    "hono": "^4.13.7"
+  },
+  "bundleDependencies": [
+    "hono"
+  ],
+  "devDependencies": {
+    "@devvit/cli": "^0.14.7",
+    "@devvit/test": "^0.14.7",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  },
+  "allowScripts": {
+    "esbuild@0.25.9": true,
+    "esbuild@0.28.2": true,
+    "core-js@3.50.0": true,
+    "protobufjs@7.6.3": true,
+    "protobufjs@7.3.2": true,
+    "hono@4.13.7": true
+  },
+  "license": "BSD-3-Clause"
+}

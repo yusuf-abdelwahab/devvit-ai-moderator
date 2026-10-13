@@ -1,0 +1,108 @@
+{
+  "$schema":"https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "mm-ai-mod",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "reddit": {
+      "enable": true,
+      "scope": "moderator"
+    },
+    "redis": true,
+    "http": {
+      "enable": true,
+      "domains": [
+        "generativelanguage.googleapis.com",
+        "phbqktxbuukhcihemqdj.supabase.co"
+      ]
+    }
+  },
+  "settings": {
+    "global": {
+      "gemini-api-key": {
+        "type": "string",
+        "label": "Gemini API key",
+        "isSecret": true,
+        "helpText": "Developer-managed Gemini API key. Set with: npx devvit settings set gemini-api-key"
+      },
+      "supabase-url": {
+        "type": "string",
+        "label": "Supabase project URL",
+        "helpText": "Example: https://your-project.supabase.co"
+      },
+      "supabase-service-key": {
+        "type": "string",
+        "label": "Supabase service key",
+        "isSecret": true,
+        "helpText": "Server-side Supabase key. Never expose this to Reddit clients."
+      }
+    },
+    "subreddit": {
+      "ai-moderation-enabled": {
+        "type": "boolean",
+        "label": "Enable AI moderation",
+        "defaultValue": true
+      },
+      "auto-remove": {
+        "type": "boolean",
+        "label": "Allow high-confidence automatic removals",
+        "defaultValue": false
+      },
+      "auto-remove-threshold": {
+        "type": "number",
+        "label": "Automatic removal confidence threshold (0-1)",
+        "defaultValue": 0.9
+      },
+      "max-batch-size": {
+        "type": "number",
+        "label": "Maximum mod-queue items per scan",
+        "defaultValue": 10
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/app-install",
+    "onPostReport": "/internal/triggers/post-report",
+    "onCommentReport": "/internal/triggers/comment-report",
+    "onModMail": "/internal/triggers/modmail"
+  },
+  "scheduler": {
+    "tasks": {
+      "scan-mod-queue": {
+        "endpoint": "/internal/scheduler/scan-mod-queue",
+        "cron": "*/10 * * * *"
+      }
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "AI Review",
+        "description": "Run RAG + Gemini moderation analysis",
+        "forUserType": "moderator",
+        "location": [
+          "post",
+          "comment"
+        ],
+        "endpoint": "/internal/menu/ai-review"
+      },
+      {
+        "label": "AI Review Mod Queue",
+        "description": "Process a bounded batch from the mod queue",
+        "forUserType": "moderator",
+        "location": [
+          "subreddit"
+        ],
+        "endpoint": "/internal/menu/scan-mod-queue"
+      }
+    ]
+  },
+  "scripts": {
+    "dev": "npm run build && node dist/server/index.cjs"
+  },
+  "dev": {
+    "subreddit": "mm_ai_mod_dev"
+  }
+}
