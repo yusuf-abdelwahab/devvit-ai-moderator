@@ -52,12 +52,7 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, '0.0.0.0');
 
-/**
- * Health check.
- *
- * Useful during development to verify that the Hono
- * application is actually being loaded.
- */
+//Verifies that the Hono application is properly loaded.
 app.get('/health', (c) => {
   return c.json({
     status: 'ok',
@@ -65,9 +60,7 @@ app.get('/health', (c) => {
   });
 });
 
-/**
- * App installation.
- */
+//App installation.
 app.post('/internal/triggers/app-install', async (c) => {
   console.log('AI moderator installed');
 
@@ -77,9 +70,7 @@ app.post('/internal/triggers/app-install', async (c) => {
   });
 });
 
-/**
- * Process a reported post.
- */
+//Process a reported post.
 app.post('/internal/triggers/post-report', async (c) => {
   try {
     const body = await c.req.json();
@@ -112,9 +103,7 @@ app.post('/internal/triggers/post-report', async (c) => {
   }
 });
 
-/**
- * Process a reported comment.
- */
+//Process a reported comment.
 app.post('/internal/triggers/comment-report', async (c) => {
   try {
     const body = await c.req.json();
@@ -146,13 +135,7 @@ app.post('/internal/triggers/comment-report', async (c) => {
   }
 });
 
-/**
- * Process Modmail.
- *
- * This is currently a placeholder for the Modmail workflow.
- * We intentionally do not automatically perform moderation
- * actions here yet.
- */
+//TODO: Process Modmail.
 app.post('/internal/triggers/modmail', async (c) => {
   try {
     const body = await c.req.json();
@@ -176,9 +159,7 @@ app.post('/internal/triggers/modmail', async (c) => {
   }
 });
 
-/**
- * Scheduled mod-queue scan.
- */
+//Scheduled mod-queue scan.
 app.post('/internal/scheduler/scan-mod-queue', async (c) => {
   try {
     const results = await scanModQueue();
@@ -201,13 +182,7 @@ app.post('/internal/scheduler/scan-mod-queue', async (c) => {
   }
 });
 
-/**
- * Manually review the selected post/comment.
- *
- * This is particularly useful during development because
- * it allows you to test RAG + Gemini without waiting for
- * a Reddit event.
- */
+//Manually review the selected post/comment.
 app.post('/internal/menu/ai-review', async (c) => {
   try {
     const body = await c.req.json();
@@ -240,9 +215,7 @@ app.post('/internal/menu/ai-review', async (c) => {
   }
 });
 
-/**
- * Manually scan the mod queue.
- */
+//Manually scan the mod queue
 app.post('/internal/menu/scan-mod-queue', async (c) => {
   try {
     const results = await scanModQueue();
@@ -265,9 +238,7 @@ app.post('/internal/menu/scan-mod-queue', async (c) => {
   }
 });
 
-/**
- * Catch-all route.
- */
+//Catch-all route
 app.notFound((c) => {
   return c.json(
     {
@@ -278,9 +249,7 @@ app.notFound((c) => {
   );
 });
 
-/**
- * Global error handler.
- */
+//Global error handler.
 app.onError((error, c) => {
   console.error('Unhandled server error:', error);
 

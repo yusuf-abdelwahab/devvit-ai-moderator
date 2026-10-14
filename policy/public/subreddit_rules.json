@@ -1,0 +1,87 @@
+[
+  {
+    "id": "mm-public-rule-1",
+    "text": "Be respectful and civil. Harassment, hate speech, religious aggression, personal attacks, insults, slander or backbiting, and verbal abuse are prohibited. Criticism of someone's actions must remain respectful.",
+    "category": "civility",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-2",
+    "text": "No self-matchmaking or marriage profiles in ordinary posts. Users seeking marriage should use the designated In Search Of (ISO) thread.",
+    "category": "matchmaking",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-3",
+    "text": "No promotions or non-marriage-related posts. Self-promotion, including promotion of YouTube channels, subreddits, blogs, surveys, or similar material, requires prior moderator permission. Posts advertising oneself for marriage or matchmaking are not allowed outside the designated ISO thread.",
+    "category": "promotions-and-topic",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-4",
+    "text": "Stay on topic and keep advice helpful. Do not derail discussions. Comment chains that devolve into uncivil arguments may be removed.",
+    "category": "on-topic-and-helpful",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-5",
+    "text": "Do not repost or repeat topics. Check the subreddit search and FAQ before posting. Repeated topics may be removed. Aimless hypotheticals such as “Would you marry...?” may be removed.",
+    "category": "reposts-and-repeated-topics",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-6",
+    "text": "Marriage criteria and marriage-app or service discussions must be posted in designated weekly marriage-criteria and services threads. Opinion and rant posts belong in designated opinion/rant threads when available.",
+    "category": "megathreads",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community removal guidance: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-7",
+    "text": "Posts must be related to marriage or the purpose of the community. Non-marriage-related posts may be removed.",
+    "category": "relevance",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-8",
+    "text": "Posts and comments must be in English, except Quran, Hadith, and fiqh-related excerpts, which may be in another language.",
+    "category": "language",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-9",
+    "text": "NSFW content is very limited and may be removed. Intimacy-advice topics may be restricted to married or previously married users at moderator discretion.",
+    "category": "nsfw-and-intimacy",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-10",
+    "text": "Content about gender-focused ideologies, including incel, red-pill, or feminism, is not allowed and will be removed.",
+    "category": "gender-focused-ideologies",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community rules: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-11",
+    "text": "When a post belongs in a designated megathread, direct users to the appropriate thread rather than treating the topic itself as inherently prohibited.",
+    "category": "megathread-routing",
+    "visibility": "public",
+    "source": "r/MuslimMarriage community removal guidance: https://www.reddit.com/r/MuslimMarriage/about/rules/"
+  },
+  {
+    "id": "mm-public-rule-12",
+    "text": "When a rule's application is unclear, depends on context, or requires moderator discretion, recommend human review instead of automatically removing content.",
+    "category": "review-guidance",
+    "visibility": "public",
+    "source": "Conservative implementation guidance for the AI moderator; verify against current moderator-approved policy before production use.",
+    "notes": "This is an implementation safeguard, not a quoted official subreddit rule."
+  }
+]

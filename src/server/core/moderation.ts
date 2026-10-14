@@ -1,5 +1,4 @@
 import { reddit, redis } from '@devvit/web/server';
-
 import { getConfig } from './config.js';
 import { moderateWithGemini } from './gemini.js';
 import { retrievePolicy } from './rag.js';
@@ -55,9 +54,7 @@ export async function analyzeContent(
   const config = await getConfig();
 
   if (!config.geminiApiKey) {
-    throw new Error(
-      'Gemini API key is not configured'
-    );
+    throw new Error('Gemini API key is not configured');
   }
 
   const query = [
@@ -78,20 +75,39 @@ export async function analyzeContent(
     };
   }
 
-  const chunks = await retrievePolicy(
-    config.geminiApiKey,
-    config.supabaseUrl,
-    config.supabaseServiceKey,
-    query,
-    8
-  );
+  let chunks: Awaited<ReturnType<typeof retrievePolicy>>;
+
+  try {
+    // Public policy is retrieved first, private policy second.
+    chunks = await retrievePolicy(
+      config.geminiApiKey,
+      config.supabaseUrl,
+      config.supabaseServiceKey,
+      query,
+      8
+    );
+  } catch (error) {
+    console.error(
+      'Policy retrieval failed; sending item to human review:',
+      error
+    );
+
+    return {
+      action: 'REVIEW',
+      confidence: 0,
+      summary:
+        'Policy retrieval was incomplete. A human moderator must review this item.',
+      violations: [],
+      matchedRules: [],
+      policyReferences: [],
+    };
+  }
 
   if (!chunks.length) {
     return {
       action: 'REVIEW',
       confidence: 0,
-      summary:
-        'No relevant policy chunks were retrieved.',
+      summary: 'No relevant policy chunks were retrieved.',
       violations: [],
       matchedRules: [],
       policyReferences: [],
@@ -129,11 +145,7 @@ export async function processContent(
 
   const decision = await analyzeContent(item);
 
-  /*
-   * BAN_PENDING NEVER performs a ban.
-   *
-   * It only notifies human moderators.
-   */
+  //BAN_PENDING NEVER performs a ban.  It only notifies human moderators.
   if (decision.action === 'BAN_PENDING') {
     await notifyBanPending(
       item,
@@ -141,10 +153,7 @@ export async function processContent(
     );
   }
 
-  /*
-   * Automatic removal is separately controlled by
-   * configuration and confidence threshold.
-   */
+  //Automatic removal is separately controlled by configuration and confidence threshold.
   if (
     decision.action === 'REMOVE' &&
     config.autoRemove &&
@@ -153,10 +162,7 @@ export async function processContent(
     await executeRemoval(item);
   }
 
-  /*
-   * Only mark the item processed after the moderation
-   * workflow has completed successfully.
-   */
+  //Only mark the item processed after the moderation workflow has completed successfully.
   await redis.set(
     lockKey(item.id),
     JSON.stringify({
