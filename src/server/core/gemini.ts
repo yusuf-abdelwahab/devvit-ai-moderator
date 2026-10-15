@@ -2,6 +2,38 @@ import type { ModerationDecision, PolicyChunk } from './types.js';
 
 const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent';
 const EMBED_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent';
+const GENERATION_RETRY_DELAYS_MS = [1000, 2000];
+
+async function generateWithRetry(
+  apiKey: string,
+  body: string
+): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(GENERATE_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body,
+    });
+
+    const retryable = [429, 500, 502, 503, 504]
+      .includes(response.status);
+
+    if (
+      response.ok ||
+      !retryable ||
+      attempt >= GENERATION_RETRY_DELAYS_MS.length
+    ) {
+      return response;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, GENERATION_RETRY_DELAYS_MS[attempt])
+    );
+  }
+}
 
 function extractJson(
   text: string
@@ -118,10 +150,9 @@ export async function moderateWithGemini(
 
   const user = `CONTENT KIND: ${content.kind}\nTITLE: ${content.title ?? ''}\nBODY:\n${content.body}\n\nPOLICY EXCERPTS:\n${policy}`;
 
-  const response = await fetch(GENERATE_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
+  const response = await generateWithRetry(
+    apiKey,
+    JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
       generationConfig: {
@@ -129,7 +160,7 @@ export async function moderateWithGemini(
         responseMimeType: 'application/json'
       }
     })
-  });
+  );
   if (!response.ok) throw new Error(`Gemini generation failed: ${response.status} ${await response.text()}`);
   const data = await response.json() as any;
   const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
