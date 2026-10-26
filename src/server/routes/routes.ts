@@ -1,5 +1,6 @@
-import { createServer, getServerPort } from '@devvit/web/server';
+import { createServer, getServerPort, reddit } from '@devvit/web/server';
 import { Hono } from 'hono';
+import type { T1, T3 } from '@devvit/shared-types/tid.js';
 import {
   processContent,
   scanModQueue,
@@ -186,32 +187,55 @@ app.post('/internal/scheduler/scan-mod-queue', async (c) => {
 app.post('/internal/menu/ai-review', async (c) => {
   try {
     const body = await c.req.json();
+    const targetId = String(body.targetId ?? '');
+    const location = body.location;
 
-    const content: ContentItem = {
-      id: String(body.id),
-      kind: body.kind === 'comment' ? 'comment' : 'post',
-      title: body.title,
-      body: String(body.body ?? ''),
-      author: body.author,
-      permalink: body.permalink,
-    };
+    let content: ContentItem;
+
+    if (location === 'comment' && targetId.startsWith('t1_')) {
+      const comment = await reddit.getCommentById(targetId as T1);
+      content = {
+        id: String(comment.id).slice(3),
+        kind: 'comment',
+        body: comment.body,
+        author: comment.authorName,
+        permalink: `https://www.reddit.com${comment.permalink}`,
+      };
+    } else if (location === 'post' && targetId.startsWith('t3_')) {
+      const post = await reddit.getPostById(targetId as T3);
+      content = {
+        id: String(post.id).slice(3),
+        kind: 'post',
+        title: post.title,
+        body: post.body ?? '',
+        author: post.authorName,
+        permalink: `https://www.reddit.com${post.permalink}`,
+      };
+    } else {
+      return c.json({
+        showToast: {
+          text: 'Could not identify the selected post or comment.',
+        },
+      });
+    }
 
     const result = await processContent(content, 'manual-ai-review');
 
-    return c.json({
-      status: 'ok',
-      result,
-    });
+    const text = result.status === 'processed'
+      ? `AI review: ${result.decision?.action ?? 'REVIEW'} (${Math.round((result.decision?.confidence ?? 0) * 100)}%). ${result.decision?.summary ?? ''}`
+      : result.status === 'duplicate'
+        ? 'This item has already been processed.'
+        : 'AI moderation is currently disabled.';
+
+    return c.json({ showToast: { text: text.slice(0, 400) } });
   } catch (error) {
     console.error('Manual AI review failed:', error);
 
-    return c.json(
-      {
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error),
+    return c.json({
+      showToast: {
+        text: 'AI review failed. Check the app logs for details.',
       },
-      500
-    );
+    });
   }
 });
 
@@ -221,20 +245,18 @@ app.post('/internal/menu/scan-mod-queue', async (c) => {
     const results = await scanModQueue();
 
     return c.json({
-      status: 'ok',
-      processed: results.length,
-      results,
+      showToast: {
+        text: `Mod queue scan finished. ${results.length} item(s) processed.`,
+      },
     });
   } catch (error) {
     console.error('Manual mod queue scan failed:', error);
 
-    return c.json(
-      {
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error),
+    return c.json({
+      showToast: {
+        text: 'Mod queue scan failed. Check the app logs for details.',
       },
-      500
-    );
+    });
   }
 });
 
