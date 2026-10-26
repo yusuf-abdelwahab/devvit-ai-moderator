@@ -1,22 +1,54 @@
 import type { ModerationDecision, PolicyChunk } from './types.js';
 
-const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent';
+const GENERATE_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.7-flash';
+const FALLBACK_GENERATE_MODEL =
+  process.env.GEMINI_FALLBACK_MODEL ?? 'gemini-3.8-flash';
 const EMBED_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent';
-const GENERATION_RETRY_DELAYS_MS = [1000, 2000];
+const MAX_RETRIES = 5;
+const MAX_RETRY_DELAY_MS = 60_000;
 
-async function generateWithRetry(
+function getRetryDelay(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get('retry-after');
+  let retryAfterMs = 0;
+
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    retryAfterMs = Number.isFinite(seconds)
+      ? seconds * 1000
+      : Date.parse(retryAfter) - Date.now();
+  }
+
+  const backoffMs = 1000 * (2 ** attempt);
+  return Math.min(
+    MAX_RETRY_DELAY_MS,
+    Math.max(backoffMs, retryAfterMs, 0)
+  );
+}
+
+async function geminiFetchWithRetry(
+  url: string,
   apiKey: string,
   body: string
 ): Promise<Response> {
   for (let attempt = 0; ; attempt += 1) {
-    const response = await fetch(GENERATE_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body,
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body,
+      });
+    } catch (error) {
+      if (attempt >= MAX_RETRIES) throw error;
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * (2 ** attempt))
+      );
+      continue;
+    }
 
     const retryable = [429, 500, 502, 503, 504]
       .includes(response.status);
@@ -24,13 +56,13 @@ async function generateWithRetry(
     if (
       response.ok ||
       !retryable ||
-      attempt >= GENERATION_RETRY_DELAYS_MS.length
+      attempt >= MAX_RETRIES
     ) {
       return response;
     }
 
     await new Promise((resolve) =>
-      setTimeout(resolve, GENERATION_RETRY_DELAYS_MS[attempt])
+      setTimeout(resolve, getRetryDelay(response, attempt))
     );
   }
 }
@@ -115,16 +147,16 @@ function extractJson(
 }
 
 export async function embedText(apiKey: string, text: string): Promise<number[]> {
-  const response = await fetch(EMBED_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
+  const response = await geminiFetchWithRetry(
+    EMBED_URL,
+    apiKey,
+    JSON.stringify({
       model: 'models/gemini-embedding-001',
       content: { parts: [{ text }] },
       taskType: 'RETRIEVAL_QUERY',
       outputDimensionality: 768
     })
-  });
+  );
   if (!response.ok) throw new Error(`Gemini embedding failed: ${response.status} ${await response.text()}`);
   const data = await response.json() as { embedding?: { values?: number[] } };
   if (!data.embedding?.values?.length) throw new Error('Gemini returned an empty embedding');
@@ -150,18 +182,44 @@ export async function moderateWithGemini(
 
   const user = `CONTENT KIND: ${content.kind}\nTITLE: ${content.title ?? ''}\nBODY:\n${content.body}\n\nPOLICY EXCERPTS:\n${policy}`;
 
-  const response = await generateWithRetry(
+  const requestBody = JSON.stringify({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json'
+    }
+  });
+
+  let model = GENERATE_MODEL;
+  let response = await geminiFetchWithRetry(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     apiKey,
-    JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json'
-      }
-    })
+    requestBody
   );
-  if (!response.ok) throw new Error(`Gemini generation failed: ${response.status} ${await response.text()}`);
+
+  if (
+    response.status === 503 &&
+    FALLBACK_GENERATE_MODEL !== GENERATE_MODEL
+  ) {
+    console.warn(
+      `Gemini model ${GENERATE_MODEL} remained unavailable; ` +
+      `retrying with ${FALLBACK_GENERATE_MODEL}.`
+    );
+    model = FALLBACK_GENERATE_MODEL;
+    response = await geminiFetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      apiKey,
+      requestBody
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Gemini generation failed: ${response.status} on ${model} ` +
+      `${await response.text()}`
+    );
+  }
   const data = await response.json() as any;
   const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
   if (!text) throw new Error('Gemini returned no moderation decision');
