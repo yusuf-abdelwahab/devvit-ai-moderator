@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, getServerPort } from '@devvit/web/server';
 import { Hono } from 'hono';
 import {
   processContent,
@@ -8,7 +8,7 @@ import {
 import type { ContentItem } from '../core/types.js';
 
 const app = new Hono();
-const port = Number(process.env.WEBBIT_PORT) || 3000;
+const port = getServerPort();
 
 const server = createServer(async (request, response) => {
   try {
