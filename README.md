@@ -86,7 +86,9 @@ Create a Supabase project and run the SQL in:
 supabase/schema.sql
 ```
 
-The schema should create the `policy_chunks` table with 768-dimensional embeddings and the `match_policy_chunks` similarity-search function. Review the schema and access policies before applying it to a production database.
+The schema creates the `policy_chunks` table with 768-dimensional embeddings, the `match_policy_chunks` similarity-search function, and a private `moderation_audit` table. Review the schema and access policies before applying it to a production database. After updating `supabase/schema.sql`, rerun the SQL in the Supabase SQL Editor to create the audit table and its server-only permissions.
+
+Moderation decisions and action outcomes are written to `moderation_audit` without storing the original post/comment text. The Devvit scheduler deletes audit rows older than 30 days every hour; cleanup can therefore run up to an hour after a row reaches its retention limit. Only the Supabase `service_role` can access this table.
 
 Update the Supabase hostname in `devvit.json` to the exact hostname for your project, for example:
 
