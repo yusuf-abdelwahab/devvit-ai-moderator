@@ -20,3 +20,5 @@ test/
 *.log
 .DS_Store
 Thumbs.db
+scripts/test-moderation-live.mts
+scripts/test-rag-live.mts

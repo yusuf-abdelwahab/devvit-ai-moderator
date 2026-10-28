@@ -4,4 +4,4 @@ This app is a moderator tool. It processes Reddit posts, comments, and moderator
 
 The app does not request Reddit passwords or independent Reddit OAuth credentials. API credentials for Gemini and Supabase are stored as developer-managed secret settings.
 
-Before publishing, replace this draft with a complete policy that accurately reflects the final deployment, retention periods, third-party processing, and contact information.
+Private moderator rules may be added via JSON file udner /policy/private/...
