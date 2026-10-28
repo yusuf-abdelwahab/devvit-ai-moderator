@@ -2,7 +2,7 @@
 
 This AI moderator is designed to assist mod teams in running high-traffic subreddits by automating mod actions backed by AI-discretion while delegating uncertain and serious decisions to human moderators.  Some moderation teams have very active members whose absence is immediately noticed if they become unavailable for a period of time.  This AI tool can help fill in that vacancy and not overwhelm other moderators with time-sensitive items.
 
-> **Status:** Development. Verify the current Devvit APIs, configuration, schema, and moderation behavior in a test subreddit before production use. AI recommendations can be wrong and do not replace moderator judgment.
+> **Status:** Development-near completed. AI moderator is currently being tested by moderation team in test environment and is soon to be deployed to production.
 
 ## Architecture
 
