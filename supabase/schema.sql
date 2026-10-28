@@ -3,6 +3,7 @@ create extension if not exists vector;
 
 create table if not exists public.policy_chunks (
   id text primary key,
+  title text,
   text text not null,
   category text not null,
   visibility text not null
@@ -10,6 +11,9 @@ create table if not exists public.policy_chunks (
   source text not null,
   embedding vector(768) not null
 );
+
+alter table public.policy_chunks
+  add column if not exists title text;
 
 -- Policy content is server-only.
 alter table public.policy_chunks enable row level security;
@@ -32,6 +36,13 @@ drop function if exists public.match_policy_chunks(
   integer
 );
 
+drop function if exists public.match_policy_chunks(
+  vector,
+  double precision,
+  integer,
+  text
+);
+
 create or replace function public.match_policy_chunks(
   query_embedding vector(768),
   match_threshold double precision,
@@ -40,6 +51,7 @@ create or replace function public.match_policy_chunks(
 )
 returns table (
   id text,
+  title text,
   text text,
   category text,
   visibility text,
@@ -53,6 +65,7 @@ set search_path = public
 as $$
   select
     p.id,
+    p.title,
     p.text,
     p.category,
     p.visibility,

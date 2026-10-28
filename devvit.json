@@ -73,6 +73,10 @@
       "scan-mod-queue": {
         "endpoint": "/internal/scheduler/scan-mod-queue",
         "cron": "*/10 * * * *"
+      },
+      "cleanup-moderation-audit": {
+        "endpoint": "/internal/scheduler/cleanup-moderation-audit",
+        "cron": "17 * * * *"
       }
     }
   },
