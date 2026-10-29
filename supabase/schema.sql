@@ -3,6 +3,7 @@ create extension if not exists vector;
 
 create table if not exists public.policy_chunks (
   id text primary key,
+  title text,
   text text not null,
   category text not null,
   visibility text not null
@@ -10,6 +11,9 @@ create table if not exists public.policy_chunks (
   source text not null,
   embedding vector(768) not null
 );
+
+alter table public.policy_chunks
+  add column if not exists title text;
 
 -- Policy content is server-only.
 alter table public.policy_chunks enable row level security;
@@ -32,6 +36,13 @@ drop function if exists public.match_policy_chunks(
   integer
 );
 
+drop function if exists public.match_policy_chunks(
+  vector,
+  double precision,
+  integer,
+  text
+);
+
 create or replace function public.match_policy_chunks(
   query_embedding vector(768),
   match_threshold double precision,
@@ -40,6 +51,7 @@ create or replace function public.match_policy_chunks(
 )
 returns table (
   id text,
+  title text,
   text text,
   category text,
   visibility text,
@@ -53,6 +65,7 @@ set search_path = public
 as $$
   select
     p.id,
+    p.title,
     p.text,
     p.category,
     p.visibility,
@@ -81,3 +94,46 @@ grant execute on function public.match_policy_chunks(
   integer,
   text
 ) to service_role;
+
+create table if not exists public.moderation_audit (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  subreddit_id text not null,
+  item_id text not null,
+  item_kind text not null check (item_kind in ('post', 'comment')),
+  source text not null,
+  action text not null check (
+    action in ('ALLOW', 'REMOVE', 'BAN_PENDING', 'REVIEW')
+  ),
+  confidence double precision not null check (confidence >= 0 and confidence <= 1),
+  summary text not null,
+  matched_rules jsonb not null default '[]'::jsonb,
+  policy_references jsonb not null default '[]'::jsonb,
+  execution_status text not null check (
+    execution_status in ('pending', 'completed', 'failed')
+  ),
+  execution_result text not null check (
+    execution_result in (
+      'recommendation_only',
+      'approved',
+      'removed_silently',
+      'removed_with_public_reply',
+      'removed_and_notified'
+    )
+  ),
+  error_detail text
+);
+
+alter table public.moderation_audit enable row level security;
+
+revoke all on table public.moderation_audit
+  from public, anon, authenticated;
+
+grant select, insert, update, delete
+  on table public.moderation_audit to service_role;
+
+create index if not exists moderation_audit_created_at_idx
+  on public.moderation_audit (created_at);
+
+create index if not exists moderation_audit_subreddit_created_at_idx
+  on public.moderation_audit (subreddit_id, created_at desc);

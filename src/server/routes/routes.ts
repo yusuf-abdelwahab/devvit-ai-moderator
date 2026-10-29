@@ -1,6 +1,8 @@
 import { createServer, getServerPort, reddit } from '@devvit/web/server';
 import { Hono } from 'hono';
 import type { T1, T3 } from '@devvit/shared-types/tid.js';
+import { getConfig } from '../core/config.js';
+import { deleteExpiredModerationAudits } from '../core/audit.js';
 import {
   processContent,
   scanModQueue,
@@ -172,6 +174,31 @@ app.post('/internal/scheduler/scan-mod-queue', async (c) => {
     });
   } catch (error) {
     console.error('Mod queue scan failed:', error);
+
+    return c.json(
+      {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      },
+      500
+    );
+  }
+});
+
+//Remove moderation audit rows older than the 30-day retention window.
+app.post('/internal/scheduler/cleanup-moderation-audit', async (c) => {
+  try {
+    const config = await getConfig();
+    const deleted = await deleteExpiredModerationAudits(config, 30);
+
+    console.log(`Moderation audit cleanup deleted ${deleted} expired row(s).`);
+
+    return c.json({
+      status: 'ok',
+      deleted,
+    });
+  } catch (error) {
+    console.error('Moderation audit cleanup failed:', error);
 
     return c.json(
       {

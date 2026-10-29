@@ -3,6 +3,7 @@ import type { PolicyChunk, PolicyVisibility } from './types.js';
 
 interface SupabasePolicyRow {
   id: string;
+  title?: string | null;
   text: string;
   category: string;
   visibility: string;
@@ -46,6 +47,7 @@ async function retrieveByVisibility(
 
   return rows.map((row) => ({
     id: String(row.id),
+    title: row.title ?? undefined,
     text: String(row.text),
     category: String(row.category),
     visibility,

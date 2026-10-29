@@ -5,6 +5,7 @@ type Visibility = 'public' | 'private';
 
 interface PolicyInput {
   id: string;
+  title?: string;
   text: string;
   category: string;
   visibility: Visibility;
@@ -60,10 +61,11 @@ for (const chunk of chunks) {
     !chunk.id ||
     !chunk.text ||
     !chunk.category ||
-    !chunk.source
+    !chunk.source ||
+    (visibility === 'public' && !chunk.title)
   ) {
     throw new Error(
-      `Each policy chunk needs id, text, category, and source (${policyPath}).`
+      `Each policy chunk needs id, text, category, and source; public chunks also need a title (${policyPath}).`
     );
   }
 
@@ -95,7 +97,7 @@ for (const chunk of chunks) {
       body: JSON.stringify({
         model: 'models/gemini-embedding-001',
         content: {
-          parts: [{ text: chunk.text }],
+          parts: [{ text: chunk.title ? `${chunk.title}\n${chunk.text}` : chunk.text }],
         },
         taskType: 'RETRIEVAL_DOCUMENT',
         outputDimensionality: 768,
@@ -130,6 +132,7 @@ for (const chunk of chunks) {
   // Separate the database IDs for each policy source.
   const databaseChunk = {
     id: `${visibility}:${chunk.id}`,
+    title: chunk.title ?? null,
     text: chunk.text,
     category: chunk.category,
     visibility: chunk.visibility,

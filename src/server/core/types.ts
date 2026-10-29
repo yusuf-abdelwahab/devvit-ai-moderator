@@ -4,6 +4,7 @@ export type PolicyVisibility =
 
 export interface PolicyChunk {
   id: string;
+  title?: string;
   text: string;
   category: string;
   visibility: PolicyVisibility;
@@ -24,6 +25,11 @@ export interface ModerationDecision {
   violations: string[];
   matchedRules: string[];
   policyReferences: string[];
+  matchedPublicRules?: Array<{
+    id: string;
+    title: string;
+    text: string;
+  }>;
 }
 
 export interface ContentItem {
