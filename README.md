@@ -140,7 +140,8 @@ Each JSON file should contain an array of records. For example:
 [
   {
     "id": "example-policy-1",
-    "text": "A concise policy statement with enough context for retrieval.",
+    "title": "Example Policy 1 Name"
+    "text": "Verbatim policy text to be outputted for replies to removed content to provide user justification",
     "category": "example-category",
     "visibility": "public",
     "source": "Public subreddit rules"
