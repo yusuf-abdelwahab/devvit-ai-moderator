@@ -1,15 +1,29 @@
 import { reddit, redis } from '@devvit/web/server';
+import type { T1, T3 } from '@devvit/shared-types/tid.js';
 import { getConfig } from './config.js';
+import {
+  completeModerationAudit,
+  createModerationAudit,
+  type AuditExecutionResult,
+} from './audit.js';
 import { moderateWithGemini } from './gemini.js';
 import { retrievePolicy } from './rag.js';
 
 import type {
   ContentItem,
   ModerationDecision,
+  PolicyChunk,
 } from './types.js';
 
 const lockKey = (id: string) =>
   `ai-mod:processed:${id}`;
+
+function normalizeContentId(item: ContentItem): string {
+  const prefix = item.kind === 'post' ? 't3_' : 't1_';
+  return item.id.startsWith(prefix)
+    ? item.id.slice(prefix.length)
+    : item.id;
+}
 
 async function notifyBanPending(
   item: ContentItem,
@@ -35,17 +49,79 @@ async function notifyBanPending(
 async function executeRemoval(
   item: ContentItem
 ): Promise<void> {
-  if (item.kind === 'post') {
-    await reddit.remove(
-      `t3_${item.id}` as `t3_${string}`,
-      false
-    );
-  } else {
-    await reddit.remove(
-      `t1_${item.id}` as `t1_${string}`,
-      false
-    );
+  await reddit.remove(getThingId(item), false);
+}
+
+function getThingId(item: ContentItem): T1 | T3 {
+  const id = normalizeContentId(item);
+  return item.kind === 'post'
+    ? `t3_${id}` as T3
+    : `t1_${id}` as T1;
+}
+
+async function executeApproval(item: ContentItem): Promise<void> {
+  await reddit.approve(getThingId(item));
+}
+
+export function isPublicOnlyDecision(decision: ModerationDecision): boolean {
+  const decisiveRules = decision.matchedRules.length > 0
+    ? decision.matchedRules
+    : decision.policyReferences;
+  const references = decisiveRules.join(' ').toLowerCase();
+
+  return references.includes('public:') && !references.includes('private:');
+}
+
+export function getMatchedPublicRules(
+  chunks: PolicyChunk[],
+  decision: ModerationDecision
+): NonNullable<ModerationDecision['matchedPublicRules']> {
+  const citations = [
+    ...decision.matchedRules,
+    ...decision.policyReferences,
+  ].map((citation) => citation.trim().toLowerCase());
+
+  return chunks
+    .filter((chunk) => {
+      if (chunk.visibility !== 'public' || !chunk.title) return false;
+
+      const id = chunk.id.toLowerCase();
+      const unqualifiedId = id.startsWith('public:')
+        ? id.slice('public:'.length)
+        : id;
+
+      return citations.some((citation) =>
+        citation.includes(id) ||
+        citation.includes(unqualifiedId) ||
+        citation === chunk.title?.trim().toLowerCase()
+      );
+    })
+    .map(({ id, title, text }) => ({ id, title: title!, text }));
+}
+
+async function replyWithPublicRemoval(
+  item: ContentItem,
+  decision: ModerationDecision
+): Promise<void> {
+  const rules = decision.matchedPublicRules ?? [];
+  if (!rules.length) {
+    throw new Error('Public-only removal has no matched public rule text');
   }
+
+  const ruleText = rules
+    .map((rule) => `**${rule.title}**\n${rule.text}`)
+    .join('\n\n');
+
+  const response = await reddit.submitComment({
+    id: getThingId(item),
+    text:
+      `Your ${item.kind} was removed for violating the following subreddit rule${rules.length > 1 ? 's' : ''}:\n\n` +
+      `${ruleText}\n\n` +
+      'If you believe this was a mistake, please contact the moderators through Modmail.',
+    runAs: 'APP',
+  });
+
+  await response.lock();
 }
 
 export async function analyzeContent(
@@ -114,17 +190,26 @@ export async function analyzeContent(
     };
   }
 
-  return moderateWithGemini(
+  const decision = await moderateWithGemini(
     config.geminiApiKey,
     item,
     chunks
   );
+
+  return {
+    ...decision,
+    matchedPublicRules: getMatchedPublicRules(chunks, decision),
+  };
 }
 
 export async function processContent(
   item: ContentItem,
   source: string
 ) {
+  const normalizedItem = {
+    ...item,
+    id: normalizeContentId(item),
+  };
   const config = await getConfig();
 
   if (!config.enabled) {
@@ -134,7 +219,7 @@ export async function processContent(
   }
 
   const existing = await redis.get(
-    lockKey(item.id)
+    lockKey(normalizedItem.id)
   );
 
   if (existing) {
@@ -143,28 +228,87 @@ export async function processContent(
     };
   }
 
-  const decision = await analyzeContent(item);
+  const decision = await analyzeContent(normalizedItem);
+  const subreddit = await reddit.getCurrentSubreddit();
+  const auditId = await createModerationAudit(config, {
+    subredditId: subreddit.id,
+    item: normalizedItem,
+    source,
+    decision,
+  });
 
-  //BAN_PENDING NEVER performs a ban.  It only notifies human moderators.
-  if (decision.action === 'BAN_PENDING') {
-    await notifyBanPending(
-      item,
-      decision
-    );
+  let executionResult: AuditExecutionResult = 'recommendation_only';
+
+  try {
+    // BAN_PENDING removes silently for users and notifies moderators; it never bans.
+    if (decision.action === 'BAN_PENDING') {
+      await executeRemoval(normalizedItem);
+      executionResult = 'removed_silently';
+      await notifyBanPending(normalizedItem, decision);
+      executionResult = 'removed_and_notified';
+    }
+
+    // Automatic removal is separately controlled by configuration and confidence threshold.
+    if (
+      decision.action === 'REMOVE' &&
+      config.autoRemove &&
+      decision.confidence >= config.threshold
+    ) {
+      const publicOnly = isPublicOnlyDecision(decision);
+      if (publicOnly && !decision.matchedPublicRules?.length) {
+        throw new Error('Matched public rule title/text was not available');
+      }
+
+      await executeRemoval(normalizedItem);
+      executionResult = 'removed_silently';
+
+      if (publicOnly) {
+        await replyWithPublicRemoval(normalizedItem, decision);
+        executionResult = 'removed_with_public_reply';
+      }
+    }
+
+    if (
+      decision.action === 'ALLOW' &&
+      decision.confidence >= 0.9
+    ) {
+      await executeApproval(normalizedItem);
+      executionResult = 'approved';
+    }
+
+  } catch (error) {
+    try {
+      await completeModerationAudit(
+        config,
+        auditId,
+        'failed',
+        executionResult,
+        error instanceof Error ? error.message : String(error)
+      );
+    } catch (auditError) {
+      console.error('Failed to finalize moderation audit:', auditError);
+    }
+
+    throw error;
   }
 
-  //Automatic removal is separately controlled by configuration and confidence threshold.
-  if (
-    decision.action === 'REMOVE' &&
-    config.autoRemove &&
-    decision.confidence >= config.threshold
-  ) {
-    await executeRemoval(item);
+  try {
+    await completeModerationAudit(
+      config,
+      auditId,
+      'completed',
+      executionResult
+    );
+  } catch (error) {
+    console.error(
+      `Moderation action completed but audit ${auditId} could not be finalized:`,
+      error
+    );
   }
 
   //Only mark the item processed after the moderation workflow has completed successfully.
   await redis.set(
-    lockKey(item.id),
+    lockKey(normalizedItem.id),
     JSON.stringify({
       source,
       action: decision.action,
